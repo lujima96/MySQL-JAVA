@@ -7,6 +7,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+
 import projects.entity.Material;
 import projects.entity.Project;
 import projects.entity.Step;
@@ -413,7 +415,7 @@ public class ProjectDao extends DaoBase {
      * @param projectId The ID of the project to fetch.
      * @return The Project object if found; otherwise, null.
      */
-    public Project fetchProjectById(Integer projectId) {
+    public Optional<Project> fetchProjectById(Integer projectId) {
         String sql = "SELECT project_id, project_name, estimated_hours, actual_hours, difficulty, notes FROM " + PROJECT_TABLE + " WHERE project_id = ?";
 
         try (Connection conn = DbConnection.getConnection();
@@ -436,7 +438,7 @@ public class ProjectDao extends DaoBase {
                     project.setSteps(fetchStepsForProject(conn, project.getProjectId()));
                     project.setCategories(fetchCategoriesForProject(conn, project.getProjectId()));
 
-                    return project;
+                    return Optional.ofNullable(project);
                 } else {
                     return null; // Project not found
                 }
@@ -541,4 +543,41 @@ public class ProjectDao extends DaoBase {
             }
         }
     }
-}
+
+    public boolean modifyProjectDetails(Project project) {
+        // SQL update statement. Note that the project_id is used in the WHERE clause.
+        String sql = "UPDATE project SET project_name = ?, estimated_hours = ?, actual_hours = ?, difficulty = ?, notes = ? WHERE project_id = ?";
+
+        // Obtain a Connection using try-with-resources. (Assuming you have a DbConnection utility class.)
+        try (Connection conn = DbConnection.getConnection()) {
+            // Disable auto-commit mode to start a transaction.
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                // Set the parameters on the PreparedStatement.
+                stmt.setString(1, project.getProjectName());
+                stmt.setBigDecimal(2, project.getEstimatedHours());
+                stmt.setBigDecimal(3, project.getActualHours());
+                stmt.setInt(4, project.getDifficulty());
+                stmt.setString(5, project.getNotes());
+                // The project_id is used in the WHERE clause.
+                stmt.setInt(6, project.getProjectId());
+
+                // Execute the update. The executeUpdate() method returns the number of rows affected.
+                int rowsAffected = stmt.executeUpdate();
+
+                // Commit the transaction.
+                conn.commit();
+
+                // If exactly one row was updated, return true; otherwise, return false.
+                return rowsAffected == 1;
+            } catch (SQLException e) {
+                // Rollback the transaction if an error occurs in the inner try block.
+                conn.rollback();
+                throw new DbException("Error modifying project details: " + e.getMessage(), e);
+            }
+        } catch (SQLException e) {
+            throw new DbException("Error modifying project details: " + e.getMessage(), e);
+        }
+    }}
+

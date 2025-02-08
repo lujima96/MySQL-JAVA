@@ -3,6 +3,7 @@ package projects;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
@@ -27,19 +28,18 @@ public class ProjectsApp {
         "2) List all projects",
         "3) Update a project",
         "4) Delete a project",
-        "5) View project details",
+        "5) Select a project",
         "0) Exit"
     );
-    // @formatter:on
-
-    /*
+	/*
      * Entry point to application
      */
-    public static void main(String[] args) {
-        try (Scanner scanner = new Scanner(System.in)) {
-            new ProjectsApp(scanner).processUserSelections();
-        }
-    }
+	public static void main(String[] args) {
+	    try (Scanner scanner = new Scanner(System.in)) {
+	        new ProjectsApp(scanner).processUserSelections();
+	    }
+	}
+
 
     /**
      * Constructor that accepts a Scanner object.
@@ -77,7 +77,7 @@ public class ProjectsApp {
                         deleteProject();
                         break;
                     case 5:
-                        viewProjectDetails();
+                        selectProject();
                         break;
                     default:
                         System.out.println("\n" + selection + " is not a valid selection. Try again.");
@@ -107,15 +107,12 @@ public class ProjectsApp {
             return;
         }
 
-        // Prompt for materials with detailed input
-        List<Material> materials = getDetailedMaterialsInput("Enter the materials (format: Name:NumRequired:Cost, separated by commas)");
-
-        // Prompt for steps and categories as before
-        List<Step> steps = getDetailedStepsInput("Enter the steps (format: Description:Order, separated by commas)");
-        List<Category> categories = getDetailedCategoriesInput("Enter the categories (format: Name, separated by commas)");
+        // Use interactive prompts instead of comma-separated input
+        List<Material> materials = getMaterialsInput();
+        List<Step> steps = getStepsInput();
+        List<Category> categories = getCategoryInput();
 
         Project project = new Project();
-
         project.setProjectName(projectName);
         project.setEstimatedHours(estimatedHours);
         project.setActualHours(actualHours);
@@ -126,148 +123,17 @@ public class ProjectsApp {
         for (Material material : materials) {
             project.addMaterial(material);
         }
-
         for (Step step : steps) {
             project.addStep(step);
         }
-
         for (Category category : categories) {
             project.addCategory(category);
         }
 
         Project dbProject = projectService.addProject(project);
-        System.out.println("You have successfully created project:" + dbProject);
+        System.out.println("You have successfully created project: " + dbProject);
     }
 
-    /**
-     * Prompts the user to enter materials with details and parses them into Material objects.
-     *
-     * @param prompt The prompt message to display.
-     * @return A list of Material objects with all fields set.
-     */
-    private List<Material> getDetailedMaterialsInput(String prompt) {
-        System.out.print(prompt + ": ");
-        String input = scanner.nextLine();
-
-        if (input.isBlank()) {
-            return List.of();
-        }
-
-        List<Material> materials = new java.util.LinkedList<>();
-        String[] materialEntries = input.split(",");
-
-        for (String entry : materialEntries) {
-            String[] parts = entry.trim().split(":");
-            if (parts.length != 3) {
-                System.out.println("Invalid format for material: " + entry);
-                continue; // Skip invalid entries
-            }
-
-            String name = parts[0].trim();
-            Integer numRequired = null;
-            BigDecimal cost = null;
-
-            try {
-                numRequired = Integer.valueOf(parts[1].trim());
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid number for numRequired in material: " + entry);
-                continue; // Skip invalid entries
-            }
-
-            try {
-                cost = new BigDecimal(parts[2].trim()).setScale(2, RoundingMode.HALF_UP);
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid number for cost in material: " + entry);
-                continue; // Skip invalid entries
-            }
-
-            Material material = new Material();
-            material.setMaterialName(name);
-            material.setNumRequired(numRequired);
-            material.setCost(cost);
-
-            materials.add(material);
-        }
-
-        return materials;
-    }
-
-    /**
-     * Prompts the user to enter steps with details and parses them into Step objects.
-     *
-     * @param prompt The prompt message to display.
-     * @return A list of Step objects with all fields set.
-     */
-    private List<Step> getDetailedStepsInput(String prompt) {
-        System.out.print(prompt + ": ");
-        String input = scanner.nextLine();
-
-        if (input.isBlank()) {
-            return List.of();
-        }
-
-        List<Step> steps = new java.util.LinkedList<>();
-        String[] stepEntries = input.split(",");
-
-        for (String entry : stepEntries) {
-            String[] parts = entry.trim().split(":");
-            if (parts.length != 2) {
-                System.out.println("Invalid format for step: " + entry);
-                continue; // Skip invalid entries
-            }
-
-            String description = parts[0].trim();
-            Integer order = null;
-
-            try {
-                order = Integer.valueOf(parts[1].trim());
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid number for step order in step: " + entry);
-                continue; // Skip invalid entries
-            }
-
-            Step step = new Step();
-            step.setStepText(description);
-            step.setStepOrder(order);
-
-            steps.add(step);
-        }
-
-        return steps;
-    }
-
-    /**
-     * Prompts the user to enter categories with details and parses them into Category objects.
-     *
-     * @param prompt The prompt message to display.
-     * @return A list of Category objects with all fields set.
-     */
-    private List<Category> getDetailedCategoriesInput(String prompt) {
-        System.out.print(prompt + ": ");
-        String input = scanner.nextLine();
-
-        if (input.isBlank()) {
-            return List.of();
-        }
-
-        List<Category> categories = new java.util.LinkedList<>();
-        String[] categoryEntries = input.split(",");
-
-        for (String entry : categoryEntries) {
-            String name = entry.trim();
-            if (name.isEmpty()) {
-                System.out.println("Invalid format for category: " + entry);
-                continue; // Skip invalid entries
-            }
-
-            Category category = new Category();
-            category.setCategoryName(name);
-
-            categories.add(category);
-        }
-
-        return categories;
-    }
 
     /**
      * Gets user input from console and converts it to BigDecimal.
@@ -354,7 +220,7 @@ public class ProjectsApp {
      * @param prompt The message to display to the user.
      * @return A list of trimmed, non-empty strings.
      */
-    private List<String> getListInput(String prompt) {
+    public List<String> getListInput(String prompt) {
         String input = getStringInput(prompt);
         if (Objects.isNull(input)) {
             return List.of();
@@ -384,27 +250,218 @@ public class ProjectsApp {
         projects.forEach(project -> System.out.println("  " + project));
     }
 
-    /**
-     * Placeholder for updating a project. Currently not implemented.
-     */
+
     private void updateProject() {
-        // Implementation goes here
-        System.out.println("Update project feature is not yet implemented.");
+    	   // Display the list of projects to help the user select the one to update.
+        listProjects();
+        
+        // Prompt the user to enter the ID of the project they wish to update.
+        Integer projectId = getIntInput("Enter the project ID to update");
+        if (projectId == null) {
+            System.out.println("No project selected. Returning to main menu.");
+            return;
+        }
+        
+        try {
+            // Retrieve the existing project.
+            Project project = projectService.fetchProjectById(projectId);
+            
+            // Prompt the user for new values. If the user provides no input, keep the existing value.
+            String projectName = getStringInput("Enter new project name (" + project.getProjectName() + ")");
+            if (projectName != null && !projectName.isBlank()) {
+                project.setProjectName(projectName);
+            }
+            
+            String estimatedHoursInput = getStringInput("Enter new estimated hours (" + project.getEstimatedHours() + ")");
+            if (estimatedHoursInput != null && !estimatedHoursInput.isBlank()) {
+                try {
+                    BigDecimal estimatedHours = new BigDecimal(estimatedHoursInput).setScale(2, RoundingMode.HALF_UP);
+                    project.setEstimatedHours(estimatedHours);
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid decimal value for estimated hours. Keeping existing value.");
+                }
+            }
+            
+            String actualHoursInput = getStringInput("Enter new actual hours (" + project.getActualHours() + ")");
+            if (actualHoursInput != null && !actualHoursInput.isBlank()) {
+                try {
+                    BigDecimal actualHours = new BigDecimal(actualHoursInput).setScale(2, RoundingMode.HALF_UP);
+                    project.setActualHours(actualHours);
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid decimal value for actual hours. Keeping existing value.");
+                }
+            }
+            
+            String difficultyInput = getStringInput("Enter new difficulty (1-5) (" + project.getDifficulty() + ")");
+            if (difficultyInput != null && !difficultyInput.isBlank()) {
+                try {
+                    Integer difficulty = Integer.valueOf(difficultyInput);
+                    if (difficulty < 1 || difficulty > 5) {
+                        System.out.println("Difficulty must be between 1 and 5. Keeping existing value.");
+                    } else {
+                        project.setDifficulty(difficulty);
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid number for difficulty. Keeping existing value.");
+                }
+            }
+            
+            String notes = getStringInput("Enter new project notes (" + project.getNotes() + ")");
+            if (notes != null && !notes.isBlank()) {
+                project.setNotes(notes);
+            }
+            
+            // You can add similar prompts to update materials, steps, and categories if required.
+            // For now, we're only updating the core project details.
+            
+            // Persist the updated project via the service layer.
+            projectService.modifyProjectDetails(project);
+            System.out.println("Project updated successfully: " + project);
+        } catch (Exception e) {
+            System.out.println("Error updating project: " + e.getMessage());
+        }
+    	
     }
 
     /**
      * Placeholder for deleting a project. Currently not implemented.
      */
     private void deleteProject() {
-        // Implementation goes here
-        System.out.println("Delete project feature is not yet implemented.");
+    	// Display the list of projects to assist the user in selecting one.
+        listProjects();
+
+        // Prompt the user for the project ID to delete.
+        Integer projectId = getIntInput("Enter the project ID to delete");
+        if (projectId == null) {
+            System.out.println("No project selected. Returning to main menu.");
+            return;
+        }
+
+        // Ask for confirmation before deletion.
+        String confirmation = getStringInput("Are you sure you want to delete project with ID " + projectId + " (y/n)?");
+        if (confirmation == null || !confirmation.equalsIgnoreCase("y")) {
+            System.out.println("Deletion cancelled.");
+            return;
+        }
+
+        try {
+            // Invoke the service layer to perform the deletion.
+            projectService.deleteProject(projectId);
+            System.out.println("Project with ID " + projectId + " has been successfully deleted.");
+        } catch (Exception e) {
+            System.out.println("Error deleting project: " + e.getMessage());
+        }
+    		
+    }
+    
+
+
+    private void selectProject() {
+ // Listing projects so user can decide
+    	listProjects();
+ // Prompting user for project ID.
+    	Integer projectId = getIntInput("Enter a project ID to view details");
+ // Checking if valid id was selected
+    	if(projectId == null) {
+    		System.out.println("You need to enter a project id");
+    		return;
+    	}
+ // Fetching project details from the service
+    	Project project = projectService.fetchProjectById(projectId);
+    	
+    	if(project == null) {
+    		System.out.println("Project with ID" + projectId + " not found");
+    		return;
+    	}
+  // Displaying the basic project details.
+    	System.out.println("\nProject Details:");
+    	System.out.println("  " + project);
+    	
+    	   // Displaying associated materials
+
+        if (!project.getMaterials().isEmpty()) {
+            System.out.println("\nMaterials:");
+            project.getMaterials().forEach(material ->
+                System.out.println("  " + material));
+        }
+    }
+    
+    private List<Material> getMaterialsInput(){
+    	List<Material> materials = new ArrayList<>();
+    	while(true) {
+    		// Prompting for material name
+    		String name = getStringInput("Enter the material name (or type 'done' to finish)");
+    			if(name == null || name.equalsIgnoreCase("done")) {
+    				break; //User exits if he is finished by typing done
+    				
+    			}
+    			
+    	// Prompt for number required and validate
+    			Integer numRequired = getIntInput("Enter the number required for \"" + name + "\"");
+    			if (numRequired == null) {
+    				System.out.println("Invalid input. Use an integer.");
+    				continue;
+    			}
+    	// Prompting for cost and validating
+    			String costInput = getStringInput("Enter the cost for \"" + name + "\"");
+    			BigDecimal cost;
+    			try {
+    				cost = new BigDecimal(costInput).setScale(2, RoundingMode.HALF_UP);
+    			} catch (NumberFormatException e) {
+    				System.out.println("Enter a numerical price");
+    				continue;
+    			}
+    		// Creating and adding Material object.
+    			Material material = new Material();
+    			material.setMaterialName(name);
+    			material.setNumRequired(numRequired);
+    			material.setCost(cost);
+    			materials.add(material);
+    			System.out.println("Material added: " + material);
+    	}
+		return materials;
     }
 
-    /**
-     * Placeholder for viewing project details. Currently not implemented.
-     */
-    private void viewProjectDetails() {
-        // Implementation goes here
-        System.out.println("View project details feature is not yet implemented.");
+    private List<Step> getStepsInput(){
+    	List<Step> steps = new ArrayList<>();
+    	while(true) {
+    		// Prompting user for step description
+    		String description = getStringInput("Enter step description (or type 'done' to finish)");
+    		if (description == null || description.equalsIgnoreCase("done")) {
+    			break;
+    		}
+    		// Prompt for step order and validation
+    		Integer order = getIntInput("Enter the order for this step");
+    		if(order == null) {
+    			System.out.println("Invalid input for step order. Please try again");
+    			continue;
+    		}
+            // Create and add the Step object.
+            Step step = new Step();
+            step.setStepText(description);
+            step.setStepOrder(order);
+            steps.add(step);
+            System.out.println("Step added: " + step);
+    	}
+		return steps;
     }
+    
+    private List<Category> getCategoryInput() {
+    	List<Category> categories = new ArrayList<>();
+    	while(true) {
+    		// Prompting category name
+    		String name = getStringInput("Enter category name (or type 'done' to finish)");
+    		if (name == null || name.equalsIgnoreCase("done")) {
+    			break;
+    		}
+    		
+            // Create and add the Category object.
+            Category category = new Category();
+            category.setCategoryName(name);
+            categories.add(category);
+            System.out.println("Category added: " + category);
+    	}
+		return categories;
+    }
+    
 }

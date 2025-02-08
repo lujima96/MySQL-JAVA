@@ -1,9 +1,11 @@
 package projects.service;
 
-import java.sql.SQLException;
 import java.util.List;
+import java.util.NoSuchElementException;
+
 import projects.dao.ProjectDao;
 import projects.entity.Project;
+import projects.exception.DbException;
 
 /**
  * This class provides services related to Project operations.
@@ -37,8 +39,15 @@ public class ProjectService {
      * @return The fetched project or null if not found.
      */
     public Project fetchProjectById(Integer projectId) {
-        return projectDao.fetchProjectById(projectId);
+        if (projectId == null) {
+            throw new IllegalArgumentException("Project ID cannot be null");
+        }
+
+        return projectDao.fetchProjectById(projectId)
+            .orElseThrow(() -> new NoSuchElementException( // Use existing import
+                "Project not found with ID: " + projectId));
     }
+
 
     /**
      * Updates an existing project.
@@ -59,4 +68,12 @@ public class ProjectService {
     public int deleteProject(Integer projectId) {
         return projectDao.deleteProject(projectId);
     }
+
+	public void modifyProjectDetails(Project project) {
+		if(!projectDao.modifyProjectDetails(project)) {
+			throw new DbException("Project with ID=" + project.getProjectId() + " does not exist.");
+		}
+	
+		
+	}
 }
